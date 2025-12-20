@@ -10,5 +10,5 @@
 
 ## 기술 스택
 
-- Java, Android, Naver Map API
+- Java, Android, Google Places API, WebView
 - TypeScript, React, Vercel
