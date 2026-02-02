@@ -1,10 +1,12 @@
 package com.mukho.meomeokno;
 
 import androidx.annotation.NonNull;
+import androidx.activity.OnBackPressedCallback;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 
 import android.Manifest;
+import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.location.Location;
 import android.os.Bundle;
@@ -47,6 +49,21 @@ public class MainActivity extends AppCompatActivity {
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
 
         setupWebView();
+        setupBackPressed();
+    }
+
+    private void setupBackPressed() {
+        getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
+            @Override
+            public void handleOnBackPressed() {
+                if (webView.canGoBack()) {
+                    webView.goBack();
+                } else {
+                    // 더 이상 뒤로 갈 곳이 없으면 앱 종료
+                    finish();
+                }
+            }
+        });
     }
 
     private void setupWebView() {
@@ -69,6 +86,31 @@ public class MainActivity extends AppCompatActivity {
         webView.setWebViewClient(new WebViewClient() {
             @Override
             public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
+                String url = request.getUrl().toString();
+
+                // 네이버 지도 앱 실행 스킴(nmap://) 또는 Android Intent 스킴(intent://) 처리
+                if (url.startsWith("nmap://") || url.startsWith("intent://")) {
+                    try {
+                        Intent intent = Intent.parseUri(url, Intent.URI_INTENT_SCHEME);
+                        if (intent != null) {
+                            // 앱이 설치되어 있는지 확인 후 실행
+                            if (getPackageManager().resolveActivity(intent, 0) != null) {
+                                startActivity(intent);
+                                return true;
+                            }
+
+                            // 앱이 없으면 마켓(Play Store)으로 연결 시도 (Intent 스킴에 포함된 경우)
+                            String fallbackUrl = intent.getStringExtra("browser_fallback_url");
+                            if (fallbackUrl != null) {
+                                view.loadUrl(fallbackUrl);
+                                return true;
+                            }
+                        }
+                    } catch (Exception e) {
+                        Log.e(TAG, "Error overriding URL: " + url, e);
+                    }
+                }
+
                 // react-router 내부 라우팅을 위해 false 반환
                 return false;
             }
@@ -182,15 +224,6 @@ public class MainActivity extends AppCompatActivity {
             } else {
                 Toast.makeText(this, "위치 권한이 거부되었습니다.", Toast.LENGTH_SHORT).show();
             }
-        }
-    }
-
-    @Override
-    public void onBackPressed() {
-        if (webView.canGoBack()) {
-            webView.goBack();
-        } else {
-            super.onBackPressed();
         }
     }
 }
