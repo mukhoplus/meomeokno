@@ -4,11 +4,17 @@ import androidx.annotation.NonNull;
 import androidx.activity.OnBackPressedCallback;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowCompat;
+import androidx.core.view.WindowInsetsCompat;
+import androidx.core.view.WindowInsetsControllerCompat;
 
 import android.Manifest;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.graphics.Color;
 import android.location.Location;
+import android.net.Uri;
 import android.os.Bundle;
 import android.webkit.JavascriptInterface;
 import android.webkit.WebChromeClient;
@@ -43,9 +49,28 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        // Edge-to-Edge 설정
+        WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
+        getWindow().setStatusBarColor(Color.TRANSPARENT);
+        getWindow().setNavigationBarColor(Color.TRANSPARENT);
+
+        // 시스템 바 아이콘 색상 설정 (배경이 밝을 경우 어둡게)
+        WindowInsetsControllerCompat controller = new WindowInsetsControllerCompat(getWindow(), getWindow().getDecorView());
+        controller.setAppearanceLightStatusBars(true);
+        controller.setAppearanceLightNavigationBars(true);
+
         setContentView(R.layout.activity_main);
 
         webView = findViewById(R.id.webview);
+
+        // 시스템 바(상태바, 내비게이션바) 영역만큼 패딩을 주어 WebView 컨텐츠가 가려지지 않게 함
+        ViewCompat.setOnApplyWindowInsetsListener(webView, (v, windowInsets) -> {
+            androidx.core.graphics.Insets insets = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars());
+            v.setPadding(insets.left, insets.top, insets.right, insets.bottom);
+            return windowInsets;
+        });
+
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
 
         setupWebView();
@@ -108,6 +133,18 @@ public class MainActivity extends AppCompatActivity {
                         }
                     } catch (Exception e) {
                         Log.e(TAG, "Error overriding URL: " + url, e);
+                    }
+                } else if (url.contains("map.naver.com") || url.contains("naver.me") || url.contains("place.naver.com")) {
+                    // 네이버 지도 관련 웹 URL인 경우 앱 실행 시도
+                    try {
+                        Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
+                        intent.setPackage("com.nhn.android.nmap"); // 네이버 지도 앱 패키지명
+                        if (intent.resolveActivity(getPackageManager()) != null) {
+                            startActivity(intent);
+                            return true;
+                        }
+                    } catch (Exception e) {
+                        Log.e(TAG, "Error opening Naver Map app", e);
                     }
                 }
 
